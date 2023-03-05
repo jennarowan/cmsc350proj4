@@ -6,88 +6,110 @@
  * Class Description:
  */
 
-import javax.swing.*;
-import javax.swing.filechooser.FileSystemView;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.Scanner;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Set;
 
-public class MainClass {
+public class DirectedGraph<V> {
+    public V startNode = null;
+    boolean cycle;
+    Set<V> discovered = new HashSet<>();
+    Set<V> visited = new HashSet<>();
 
-    static DirectedGraph<Object> graph = new DirectedGraph<>();
+    ParenthesizedList parenth = new ParenthesizedList();
+    Hierarchy heirarch = new Hierarchy();
 
-    public void readGraph() {
-        JFrame errorFrame = new JFrame();
-        Scanner fileInVertexes = null;
-        Scanner fileInEdges = null;
+    LinkedList<Node> adjacencyList = new LinkedList<>();
 
-        //Use JFileChooser to get user input
-        try {
-            //Setup JFileChooser
-            JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
-            //Show window for user to choose path through directory
-            jfc.showOpenDialog(null);
-            //Receive selected file, set to File object
-            File selectedFile = jfc.getSelectedFile();
-            //Set file selected to a readable file with Scanner class
-            fileInVertexes = new Scanner(selectedFile);
-            fileInEdges = new Scanner(selectedFile);
-        } catch (FileNotFoundException error) {
-            JOptionPane.showMessageDialog(errorFrame, "Selected file was not found.");
-            System.out.println("System exit due to selected file error.");
-            System.exit(0);
-        }//End try-catch for filechooser
+    static class Node{
+        String data;
+        LinkedList<Node> edgesList = new LinkedList<>();
+        Node nextVertex = null;
 
-        //Upon valid input, process file into a graph
-        try {
-            while (fileInVertexes.hasNextLine()) {
-                String edgeString = fileInVertexes.nextLine();
-                String[] edges = edgeString.split(" ");
-                DirectedGraph.Node vertex = new DirectedGraph.Node(edges[0]);
+        Node(String data){
+            this.data = data;
+        }
+    }//End of Node inner class
 
-                if (graph.startNode == null) {
-                    graph.startNode = vertex;
-                }//End of if (graph.startNode == null)
+    public void depthFirstSearch(){
+        cycle = false;
+        dfs(startNode);
+    }//End of depthFirstSearch method
+
+    private void dfs(V node){
+        if (discovered.contains(node)){
+            cycle = true;
+
+            heirarch.cycleDetected();
+            parenth.cycleDetected();
+            return;
+        }
 
 
-                if (!graph.adjacencyList.contains(vertex)){
+        heirarch.processVertex((DirectedGraph.Node)node);
+        parenth.processVertex((DirectedGraph.Node)node);
 
-                    if (!vertex.equals(graph.startNode)) {
-                        DirectedGraph.Node lastNode = graph.adjacencyList.getLast();
-                        lastNode.nextVertex = vertex;
-                    }
-                    graph.adjacencyList.add(vertex);
-                }//end of if (!graph.adjacencyList.contains(vertex))
-            }//End of while (fileInVertexes.hasNextLine())
+        heirarch.descend((DirectedGraph.Node)node);
+        parenth.descend((DirectedGraph.Node)node);
 
-            DirectedGraph.Node vertex = (DirectedGraph.Node) graph.startNode;
+        discovered.add(node);
+        visited.add(node);
 
-            while (fileInEdges.hasNextLine()){
-                String edgeString = fileInEdges.nextLine();
-                String[] edges = edgeString.split(" ");
+        DirectedGraph.Node edgeCheck = findItem((Node) node);
+        if (edgeCheck != null){
+            LinkedList<V> listOfItems = (LinkedList<V>) edgeCheck.edgesList;
 
-                for (int i = 1; i < edges.length; i++){
-                    DirectedGraph.Node newNode = new DirectedGraph.Node(edges[i]);
-                    graph.addEdge(vertex, newNode);
+            if (!listOfItems.isEmpty()){
+                for (V x : listOfItems){
+                    dfs(x);
                 }
-                vertex = vertex.nextVertex;
+            }
+        }//End of if (edgeCheck != null)
 
-            }//end of while (fileInEdges.hasNextLine()) loop
-        } catch(ArrayIndexOutOfBoundsException error) {
-            System.out.println("ERROR: " + error);
-            System.exit(0);
-        }//End of try-Catch statement
-    }//End of readGraph method
+        heirarch.ascend((DirectedGraph.Node)node);
+        parenth.ascend((DirectedGraph.Node)node);
 
-    //Main Method
-    public static void main(String[] args) {
-        new MainClass().readGraph();
+        discovered.remove(node);
+    }//End of dfs method
 
-        graph.depthFirstSearch();
+    public void displayUnreachable(){
+        for (int i = 0; i < adjacencyList.size(); i++){
+            Node item = adjacencyList.get(i);
+            if(!visited.contains(item)){
+                System.out.println(item.data + " is unreachable.");
+                visited.add((V)item);
+            }
 
-        System.out.println("Hierarchy:" + graph.heirarch.toString());
-        System.out.println("Parenthesized: \n" + graph.parenth.toString());
+            LinkedList<Node> innerItems = adjacencyList.get(i).edgesList;
 
-        graph.displayUnreachable();
-    }//End of main method
-}//End of MainClass
+            for (Node innerItem : innerItems){
+                if (!visited.contains(innerItem)){
+                    System.out.println(innerItem.data + " is unreachable.");
+                    visited.add((V)item);
+                }
+            }
+
+        }//End of for (int i = 0; i < adjacencyList.size(); i++)
+    }//End of displayUnreachable method
+
+    public Node findItem(Node itemToFind){
+
+        for (Node x : adjacencyList){
+            if (x.data.equals(itemToFind.data))
+                return x;
+        }//End of for (Node x : adjacencyList)
+
+        //System.out.println(itemToFind.data + " not found.");
+        return null;
+    }//End of findItem method
+
+    public void addEdge(Node parentNode, Node nodeToAdd){
+
+        Node x = findItem(nodeToAdd);
+        if(x != null){
+            nodeToAdd = x;
+        }
+
+        parentNode.edgesList.add(nodeToAdd);
+    }//End of addEdge method
+}//End of DirectedGraph class
